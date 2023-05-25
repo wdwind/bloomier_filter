@@ -41,6 +41,3 @@ class BloomierFilterMutable(BloomierBase):
         if len(input_dict) > self._size:
             raise Exception('The size of the input dict should be smaller than the size of the filter.')
 
-
-bf = BloomierFilterMutable(100, 10, 0)
-
