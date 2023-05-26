@@ -36,6 +36,25 @@ class BloomierFilterMutableTest(unittest.TestCase):
             self.assertIsNone(bf.get(i))
             self.assertIsNone(bf.get(str(i)))
 
+    def test_update(self):
+        test_dict = {}
+        for i in range(1000):
+            test_dict[i] = i + 1
+
+        bf = BloomierFilterMutable(size=10000, num_hashes=10, seed=123)
+        bf.construct(test_dict)
+
+        for i in range(1000):
+            self.assertEqual(test_dict[i], bf.get(i))
+
+        # Update
+        for i in range(1000):
+            test_dict[i] = i + 2
+            bf.set(i, i + 2)
+
+        for i in range(1000):
+            self.assertEqual(test_dict[i], bf.get(i))
+
 
 if __name__ == '__main__':
     unittest.main()
