@@ -5,9 +5,9 @@ class BloomierFilterImmutable(BloomierBase):
     def __init__(self, size: int, num_hashes: int, val_max_bit_length: int, seed: int = 0):
         super().__init__(size, num_hashes, seed)
         self._val_max_bit_length = val_max_bit_length
-        self._table1 = [0 for _ in range(size)]
+        self._table1 = [0] * size
 
-    def construct(self, input_dict: dict):
+    def build_filter(self, input_dict: dict) -> None:
         self._validate(input_dict)
         ordered_key_neighbors = self._find_match(list(input_dict.keys()))
         for key, tweak, neighbors in ordered_key_neighbors:
@@ -25,11 +25,11 @@ class BloomierFilterImmutable(BloomierBase):
             return None
         return result
 
-    def _validate(self, input_dict: dict):
+    def _validate(self, input_dict: dict) -> None:
         if len(input_dict) > self._size:
-            raise Exception('The size of the input dict should be smaller than the size of the filter.')
+            raise ValueError('The size of the input dict should be smaller than the size of the filter.')
         for key, val in input_dict.items():
-            if type(val) != int:
-                raise Exception('Value should be integers.')
+            if not isinstance(val, int):
+                raise TypeError('Value should be integers.')
             if val.bit_length() > self._val_max_bit_length:
-                raise Exception(f'Value {val} should be smaller than {1 << self._val_max_bit_length}.')
+                raise ValueError(f'Value {val} should be smaller than {1 << self._val_max_bit_length}.')

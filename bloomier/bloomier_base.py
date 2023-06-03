@@ -30,12 +30,10 @@ class BloomierBase:
         return ordered_key_neighbors
 
     def _hash(self, key):
-        neighbors = []
-        for i in range(self._num_hashes):
-            index = wyhash.hash(marshal.dumps(key), self._seed + i,
-                                wyhash.make_secret(self._seed + i)) % self._size
-            neighbors.append(index)
-        return neighbors
+        key_bytes = marshal.dumps(key)
+        return [wyhash.hash(key_bytes, self._seed + i,
+                            wyhash.make_secret(self._seed + i)) % self._size
+                for i in range(self._num_hashes)]
 
     def _get_mask(self, key):
         return wyhash.hash(marshal.dumps(key), self._seed + self._num_hashes,
