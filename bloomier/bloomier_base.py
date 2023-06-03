@@ -7,7 +7,7 @@ class BloomierBase:
         self._num_hashes = num_hashes
         self._seed = seed
 
-    def _find_match(self, keys: list):
+    def _find_match(self, keys: list) -> list:
         if len(keys) == 0:
             return []
 
@@ -29,17 +29,17 @@ class BloomierBase:
 
         return ordered_key_neighbors
 
-    def _hash(self, key):
+    def _hash(self, key) -> list:
         key_bytes = marshal.dumps(key)
         return [wyhash.hash(key_bytes, self._seed + i,
                             wyhash.make_secret(self._seed + i)) % self._size
                 for i in range(self._num_hashes)]
 
-    def _get_mask(self, key):
+    def _get_mask(self, key) -> int:
         return wyhash.hash(marshal.dumps(key), self._seed + self._num_hashes,
                            wyhash.make_secret(self._seed + self._num_hashes))
 
-    def _get_non_singletons(self, keys):
+    def _get_non_singletons(self, keys) -> set:
         non_singletons = set()
         seen = set()
         for key in keys:
