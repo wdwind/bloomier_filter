@@ -10,17 +10,17 @@ class BloomierFilterImmutable(BloomierBase):
     def build_filter(self, input_dict: dict) -> None:
         self._validate(input_dict)
         self._table1 = [0] * self._size
-        ordered_key_neighbors = self._find_match(list(input_dict.keys()))
-        for key, tweak, neighbors in ordered_key_neighbors:
-            val = input_dict[key]
-            val ^= self._get_mask(key)
+        ordered = self._find_match(list(input_dict.keys()))
+        for key, tweak, neighbors, mask in ordered:
+            val = input_dict[key] ^ mask
             for neighbor in neighbors:
                 val ^= self._table1[neighbor]
             self._table1[tweak] = val
 
     def get(self, key):
-        result = self._get_mask(key)
-        for neighbor in self._hash(key):
+        neighbors, mask = self._hash_all(key)
+        result = mask
+        for neighbor in neighbors:
             result ^= self._table1[neighbor]
         if result.bit_length() > self._val_max_bit_length:
             return None
