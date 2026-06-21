@@ -9,9 +9,10 @@ class BloomierFilterImmutable(BloomierBase):
 
     def build_filter(self, input_dict: dict) -> None:
         self._validate(input_dict)
+        self._table1 = [0] * self._size
         ordered_key_neighbors = self._find_match(list(input_dict.keys()))
         for key, tweak, neighbors in ordered_key_neighbors:
-            val = input_dict.get(key)
+            val = input_dict[key]
             val ^= self._get_mask(key)
             for neighbor in neighbors:
                 val ^= self._table1[neighbor]
