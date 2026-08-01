@@ -1,25 +1,27 @@
-import marshal
 import wyhash
 
-# Bind once at module level to avoid global lookup in hot paths.
-_dumps = marshal.dumps
+from .key_encoding import encode_key
 
 
 class BloomierBase:
-    def __init__(self, size: int, num_hashes: int, seed: int = 0):
+    def __init__(self, size: int, num_hashes: int, seed: int = 0, key_encoder=None):
         if not isinstance(size, int) or size <= 0:
             raise ValueError(f"size must be a positive integer, got {size!r}")
         if not isinstance(num_hashes, int) or num_hashes <= 0:
             raise ValueError(f"num_hashes must be a positive integer, got {num_hashes!r}")
+        if key_encoder is not None and not callable(key_encoder):
+            raise TypeError("key_encoder must be callable or None")
         self._size = size
         self._num_hashes = num_hashes
         self._seed = seed
+        # Serialize keys to bytes for hashing; see key_encoding.encode_key.
+        self._encode_key = key_encoder if key_encoder is not None else encode_key
         # Pre-compute secrets so we never call make_secret in hot paths.
         self._secrets = [wyhash.make_secret(seed + i) for i in range(num_hashes + 1)]
 
     def _hash_all(self, key):
-        """Return (neighbors_list, mask_int) with a single key marshalling."""
-        key_bytes = _dumps(key)
+        """Return (neighbors_list, mask_int) with a single key encoding."""
+        key_bytes = self._encode_key(key)
         neighbors = [wyhash.hash(key_bytes, self._seed + i, self._secrets[i]) % self._size
                      for i in range(self._num_hashes)]
         mask = wyhash.hash(key_bytes, self._seed + self._num_hashes,
@@ -33,10 +35,8 @@ class BloomierBase:
         # Pre-compute hashes + masks for every key once (parallel list, no dict).
         precomputed = [self._hash_all(key) for key in keys]
 
-        # Fail fast if any key's own hash functions collide: the XOR
-        # encode/decode invariant is only defined when each key's hash slots
-        # are distinct, so a duplicate means the user must retry with a
-        # different seed / size / num_hashes rather than us working around it.
+        # Fail fast on intra-key hash collisions: the XOR invariant requires
+        # distinct slots per key, so the user must retry with other parameters.
         for key, (neighbors, _) in zip(keys, precomputed):
             if len(set(neighbors)) != len(neighbors):
                 dup_slots = sorted({n for n in neighbors if neighbors.count(n) > 1})

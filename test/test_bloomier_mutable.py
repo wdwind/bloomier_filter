@@ -13,7 +13,7 @@ class BloomierFilterMutableTest(unittest.TestCase):
         for i in range(1000):
             test_dict[i] = i + 1
 
-        bf = BloomierFilterMutable(size=10000, num_hashes=10, seed=149)
+        bf = BloomierFilterMutable(size=10000, num_hashes=10, seed=68)
         bf.build_filter(test_dict)
 
         for i in range(1000):
@@ -28,7 +28,7 @@ class BloomierFilterMutableTest(unittest.TestCase):
         for i in range(1000):
             test_dict[str(i)] = str(i) + str(random())
 
-        bf = BloomierFilterMutable(size=10000, num_hashes=10, seed=196)
+        bf = BloomierFilterMutable(size=10000, num_hashes=10, seed=548)
         bf.build_filter(test_dict)
 
         for i in range(1000):
@@ -43,7 +43,7 @@ class BloomierFilterMutableTest(unittest.TestCase):
         for i in range(1000):
             test_dict[i] = i + 1
 
-        bf = BloomierFilterMutable(size=10000, num_hashes=10, seed=149)
+        bf = BloomierFilterMutable(size=10000, num_hashes=10, seed=68)
         bf.build_filter(test_dict)
 
         for i in range(1000):

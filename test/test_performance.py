@@ -82,10 +82,10 @@ class PerformanceTest(unittest.TestCase):
         size = 5000
         num_hashes = 3
 
-        bf_small = BloomierFilterImmutable(size=size, num_hashes=num_hashes, val_max_bit_length=8, seed=2)
+        bf_small = BloomierFilterImmutable(size=size, num_hashes=num_hashes, val_max_bit_length=8, seed=7)
         bf_small.build_filter({i: i % 256 for i in range(100)})
 
-        bf_large = BloomierFilterImmutable(size=size, num_hashes=num_hashes, val_max_bit_length=8, seed=2)
+        bf_large = BloomierFilterImmutable(size=size, num_hashes=num_hashes, val_max_bit_length=8, seed=7)
         bf_large.build_filter({i: i % 256 for i in range(1000)})
 
         test_keys = list(range(100))
@@ -103,10 +103,10 @@ class PerformanceTest(unittest.TestCase):
         size = 5000
         num_hashes = 3
 
-        bf_small = BloomierFilterMutable(size=size, num_hashes=num_hashes, seed=2)
+        bf_small = BloomierFilterMutable(size=size, num_hashes=num_hashes, seed=7)
         bf_small.build_filter({i: str(i) for i in range(100)})
 
-        bf_large = BloomierFilterMutable(size=size, num_hashes=num_hashes, seed=2)
+        bf_large = BloomierFilterMutable(size=size, num_hashes=num_hashes, seed=7)
         bf_large.build_filter({i: str(i) for i in range(1000)})
 
         test_keys = list(range(100))
@@ -126,10 +126,10 @@ class PerformanceTest(unittest.TestCase):
         size = 5000
         num_hashes = 3
 
-        bf_small = BloomierFilterMutable(size=size, num_hashes=num_hashes, seed=2)
+        bf_small = BloomierFilterMutable(size=size, num_hashes=num_hashes, seed=7)
         bf_small.build_filter({i: 0 for i in range(100)})
 
-        bf_large = BloomierFilterMutable(size=size, num_hashes=num_hashes, seed=2)
+        bf_large = BloomierFilterMutable(size=size, num_hashes=num_hashes, seed=7)
         bf_large.build_filter({i: 0 for i in range(1000)})
 
         def _set_small():
@@ -156,8 +156,8 @@ class PerformanceTest(unittest.TestCase):
         size = 5000
         d = {i: i % 256 for i in range(200)}
 
-        t3 = _build_time(BloomierFilterImmutable, size, 3, d, val_max_bit_length=8, seed=44)
-        t10 = _build_time(BloomierFilterImmutable, size, 10, d, val_max_bit_length=8, seed=44)
+        t3 = _build_time(BloomierFilterImmutable, size, 3, d, val_max_bit_length=8, seed=25)
+        t10 = _build_time(BloomierFilterImmutable, size, 10, d, val_max_bit_length=8, seed=25)
 
         # 3.3x the hashes should be less than 10x the time
         ratio = t10 / t3

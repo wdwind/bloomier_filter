@@ -10,7 +10,7 @@ class BloomierFilterImmutableTest(unittest.TestCase):
         for i in range(1000):
             test_dict[i] = i
 
-        bf = BloomierFilterImmutable(size=10000, num_hashes=10, val_max_bit_length=10, seed=149)
+        bf = BloomierFilterImmutable(size=10000, num_hashes=10, val_max_bit_length=10, seed=68)
         bf.build_filter(test_dict)
 
         for i in range(1000):
@@ -25,7 +25,7 @@ class BloomierFilterImmutableTest(unittest.TestCase):
         for i in range(1000):
             test_dict[str(i)] = i + 1
 
-        bf = BloomierFilterImmutable(size=10000, num_hashes=10, val_max_bit_length=10, seed=196)
+        bf = BloomierFilterImmutable(size=10000, num_hashes=10, val_max_bit_length=10, seed=548)
         bf.build_filter(test_dict)
 
         for i in range(1000):
@@ -63,7 +63,7 @@ class BloomierFilterImmutableTest(unittest.TestCase):
 
     def test_zero_value(self):
         test_dict = {10: 0, 20: 5, 30: 10}
-        bf = BloomierFilterImmutable(size=100, num_hashes=3, val_max_bit_length=8, seed=1)
+        bf = BloomierFilterImmutable(size=100, num_hashes=3, val_max_bit_length=8, seed=2)
         bf.build_filter(test_dict)
         self.assertEqual(0, bf.get(10))
         self.assertEqual(5, bf.get(20))
@@ -120,8 +120,8 @@ class BloomierFilterImmutableTest(unittest.TestCase):
 
     def test_deterministic_same_seed(self):
         d = {i: i % 256 for i in range(50)}
-        bf1 = BloomierFilterImmutable(size=500, num_hashes=5, val_max_bit_length=8, seed=6)
-        bf2 = BloomierFilterImmutable(size=500, num_hashes=5, val_max_bit_length=8, seed=6)
+        bf1 = BloomierFilterImmutable(size=500, num_hashes=5, val_max_bit_length=8, seed=10)
+        bf2 = BloomierFilterImmutable(size=500, num_hashes=5, val_max_bit_length=8, seed=10)
         bf1.build_filter(d)
         bf2.build_filter(d)
         for k in d:
@@ -131,8 +131,8 @@ class BloomierFilterImmutableTest(unittest.TestCase):
 
     def test_different_seeds_both_work(self):
         d = {i: i % 256 for i in range(50)}
-        bf1 = BloomierFilterImmutable(size=500, num_hashes=5, val_max_bit_length=8, seed=6)
-        bf2 = BloomierFilterImmutable(size=500, num_hashes=5, val_max_bit_length=8, seed=7)
+        bf1 = BloomierFilterImmutable(size=500, num_hashes=5, val_max_bit_length=8, seed=10)
+        bf2 = BloomierFilterImmutable(size=500, num_hashes=5, val_max_bit_length=8, seed=13)
         bf1.build_filter(d)
         bf2.build_filter(d)
         for k in d:
@@ -162,6 +162,21 @@ class BloomierFilterImmutableTest(unittest.TestCase):
         self.assertEqual(5, bf.get("a"))
         self.assertEqual(5, bf.get("b"))
         self.assertEqual(5, bf.get("c"))
+
+    def test_val_max_bit_length_invalid_raises(self):
+        for bad in (-1, 63, 64, "8", 8.0):
+            with self.assertRaises(ValueError):
+                BloomierFilterImmutable(size=100, num_hashes=3, val_max_bit_length=bad)
+
+    def test_val_max_bit_length_boundary(self):
+        # 62 is the largest accepted value; 0 only admits the value 0.
+        bf = BloomierFilterImmutable(size=100, num_hashes=3, val_max_bit_length=62)
+        bf.build_filter({"a": (1 << 61) - 1})
+        self.assertEqual((1 << 61) - 1, bf.get("a"))
+
+        bf0 = BloomierFilterImmutable(size=100, num_hashes=3, val_max_bit_length=0)
+        bf0.build_filter({"zero": 0})
+        self.assertEqual(0, bf0.get("zero"))
 
 
 if __name__ == '__main__':

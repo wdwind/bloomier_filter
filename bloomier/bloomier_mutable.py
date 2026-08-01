@@ -2,13 +2,12 @@ from .bloomier_base import BloomierBase
 
 
 class BloomierFilterMutable(BloomierBase):
-    def __init__(self, size: int, num_hashes: int, seed: int = 0):
-        super().__init__(size, num_hashes, seed)
+    def __init__(self, size: int, num_hashes: int, seed: int = 0, key_encoder=None):
+        super().__init__(size, num_hashes, seed, key_encoder)
         self._table1 = [0] * size
-        # Each table2 slot holds a (key, value) pair once the filter is built.
-        # Storing the key lets get()/set() verify that a decoded tweak really
-        # belongs to the queried key; without it, an absent key whose decode
-        # lands in [0, size) would silently overwrite another key's value.
+        # Each slot holds a (key, value) pair so get()/set() can verify the
+        # decoded tweak belongs to the queried key (absent keys must not be
+        # able to overwrite another key's value).
         self._table2 = [None] * size
 
     def build_filter(self, input_dict: dict) -> None:
