@@ -12,40 +12,44 @@ class BloomierFilterMutable(BloomierBase):
 
     def build_filter(self, input_dict: dict) -> None:
         self._validate(input_dict)
-        self._table1 = [0] * self._size
-        self._table2 = [None] * self._size
+        table1 = self._table1 = [0] * self._size
+        table2 = self._table2 = [None] * self._size
         ordered = self._find_match(list(input_dict.keys()))
         for key, tweak, neighbors, mask in ordered:
             tweak_encoded = tweak ^ mask
             for neighbor in neighbors:
                 if neighbor != tweak:
-                    tweak_encoded ^= self._table1[neighbor]
-            self._table1[tweak] = tweak_encoded
-            self._table2[tweak] = (key, input_dict[key])
+                    tweak_encoded ^= table1[neighbor]
+            table1[tweak] = tweak_encoded
+            table2[tweak] = (key, input_dict[key])
 
     def get(self, key):
         neighbors, mask = self._hash_all(key)
+        table1 = self._table1
+        table2 = self._table2
         tweak = mask
         for neighbor in neighbors:
-            tweak ^= self._table1[neighbor]
+            tweak ^= table1[neighbor]
         if tweak >= self._size:
             return None
-        entry = self._table2[tweak]
+        entry = table2[tweak]
         if entry is None or entry[0] != key:
             return None
         return entry[1]
 
     def set(self, key, val):
         neighbors, mask = self._hash_all(key)
+        table1 = self._table1
+        table2 = self._table2
         tweak = mask
         for neighbor in neighbors:
-            tweak ^= self._table1[neighbor]
+            tweak ^= table1[neighbor]
         if tweak >= self._size:
             return False
-        entry = self._table2[tweak]
+        entry = table2[tweak]
         if entry is None or entry[0] != key:
             return False
-        self._table2[tweak] = (key, val)
+        table2[tweak] = (key, val)
         return True
 
     def _validate(self, input_dict: dict) -> None:

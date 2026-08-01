@@ -102,6 +102,53 @@ class EncodeKeyTest(unittest.TestCase):
         self.assertEqual(1, len(outputs))
 
 
+class EncodeKeyCacheTest(unittest.TestCase):
+    """The encode memoization cache must stay faithful and bounded."""
+
+    def test_equal_but_distinct_keys_are_not_aliased(self):
+        # These pairs compare equal in Python but must encode differently;
+        # going through the cache must not alias them (cache-key faithfulness).
+        for a, b in [(1, True), (0.0, -0.0), (1.0, 1)]:
+            enc_a, enc_b = encode_key(a), encode_key(b)
+            self.assertNotEqual(enc_a, enc_b)
+            self.assertEqual(encode_key(a), enc_a)  # stable cache hits
+            self.assertEqual(encode_key(b), enc_b)
+
+    def test_nan_payloads_encode_distinctly(self):
+        import struct
+
+        def nan_with_payload(payload):
+            return struct.unpack(">d", struct.pack(">Q", 0x7FF8000000000000 | payload))[0]
+
+        n1 = nan_with_payload(0x001)
+        n2 = nan_with_payload(0x002)
+        self.assertNotEqual(encode_key(n1), encode_key(n2))
+        self.assertEqual(encode_key(n1), encode_key(n1))
+        self.assertEqual(encode_key(n2), encode_key(n2))
+
+    def test_cache_entry_count_is_bounded(self):
+        from bloomier import key_encoding as ke
+
+        ke._encode_cache.clear()
+        ke._encode_cache_bytes = 0
+        for i in range(ke._ENCODE_CACHE_SIZE + 1000):
+            encode_key(i)
+        self.assertLessEqual(len(ke._encode_cache), ke._ENCODE_CACHE_SIZE)
+
+    def test_cache_bytes_are_bounded(self):
+        from bloomier import key_encoding as ke
+
+        ke._encode_cache.clear()
+        ke._encode_cache_bytes = 0
+        for i in range(50):
+            encode_key("z" * 100_000 + str(i))
+        # At most one oversize entry can be resident after a clear.
+        self.assertLessEqual(
+            ke._encode_cache_bytes,
+            ke._ENCODE_CACHE_MAX_BYTES + 100_000,
+        )
+
+
 class KeyEncoderHookTest(unittest.TestCase):
     """A custom key_encoder must be used for hashing, consistently."""
 

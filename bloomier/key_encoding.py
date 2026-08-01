@@ -51,13 +51,83 @@ _U32 = struct.Struct(">I")   # unsigned 32-bit, big-endian
 _F64 = struct.Struct(">d")   # IEEE-754 double, big-endian
 
 
+def _cache_key(key):
+    """Equality-faithful, hashable stand-in for ``key`` for the encode cache.
+
+    Plain dict keys are not faithful here: values that compare equal in
+    Python can still encode differently (``True == 1``, ``0.0 == -0.0``,
+    distinct NaN payloads), so bools get a tag and floats/complexes are
+    represented by their exact IEEE-754 bit patterns.  The returned value
+    is equal iff ``key`` encodes identically.
+    """
+    if key is None:
+        return None
+    if key is True:
+        return (_TAG_BOOL, True)
+    if key is False:
+        return (_TAG_BOOL, False)
+    if isinstance(key, int):
+        return (_TAG_INT, key)
+    if isinstance(key, float):
+        return (_TAG_FLOAT, _F64.pack(key))
+    if isinstance(key, complex):
+        return (_TAG_COMPLEX, _F64.pack(key.real), _F64.pack(key.imag))
+    if isinstance(key, str):
+        return (_TAG_STR, key)
+    if isinstance(key, bytes):
+        return (_TAG_BYTES, key)
+    if isinstance(key, bytearray):
+        return (_TAG_BYTES, bytes(key))
+    if isinstance(key, tuple):
+        return (_TAG_TUPLE,) + tuple(_cache_key(e) for e in key)
+    if isinstance(key, frozenset):
+        return (_TAG_FROZENSET, frozenset(_cache_key(e) for e in key))
+    if isinstance(key, range):
+        return (_TAG_RANGE, key)
+    raise TypeError(
+        f"unsupported key type {type(key).__name__!r}; "
+        "pass a custom key_encoder to the filter constructor"
+    )
+
+
+# Bounded memoization of encoded bytes: repeated queries of the same keys
+# skip re-serialization (and frozenset re-sorting).  Dropped wholesale when
+# full — per-entry FIFO eviction would leave the dict's hash table full of
+# dummy entries that grow without bound under churn.  Bounded by entry count
+# AND total bytes; benign under the GIL (a concurrent miss only recomputes).
+_ENCODE_CACHE_SIZE = 8192
+_ENCODE_CACHE_MAX_BYTES = 1 << 20   # 1 MiB
+_encode_cache = {}
+_encode_cache_bytes = 0
+
+
 def encode_key(key) -> bytes:
     """Serialize ``key`` to canonical bytes (see module docstring).
 
     The encoding is injective on the supported types: two keys encode to the
     same bytes only if they are the same key (note that bool and int share
     dict semantics, e.g. ``1 == True``, but still encode differently).
+
+    Results are memoized in a small bounded cache; the cache key faithfully
+    distinguishes values that compare equal but encode differently.
     """
+    global _encode_cache_bytes
+    cache_key = _cache_key(key)
+    try:
+        return _encode_cache[cache_key]
+    except KeyError:
+        pass
+    encoded = _encode_key_impl(key)
+    if (len(_encode_cache) >= _ENCODE_CACHE_SIZE
+            or _encode_cache_bytes + len(encoded) > _ENCODE_CACHE_MAX_BYTES):
+        _encode_cache.clear()
+        _encode_cache_bytes = 0
+    _encode_cache[cache_key] = encoded
+    _encode_cache_bytes += len(encoded)
+    return encoded
+
+
+def _encode_key_impl(key) -> bytes:
     if key is None:
         return b"\x00"
     if key is True:

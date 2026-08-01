@@ -35,13 +35,13 @@ class BloomierFilterImmutable(BloomierBase):
 
     def build_filter(self, input_dict: dict) -> None:
         self._validate(input_dict)
-        self._table1 = [0] * self._size
+        table1 = self._table1 = [0] * self._size
         ordered = self._find_match(list(input_dict.keys()))
         for key, tweak, neighbors, mask in ordered:
             val = input_dict[key] ^ mask
             for neighbor in neighbors:
-                val ^= self._table1[neighbor]
-            self._table1[tweak] = val
+                val ^= table1[neighbor]
+            table1[tweak] = val
 
     def get(self, key):
         """Return the stored value for ``key``, or ``None`` if not present.
@@ -52,9 +52,10 @@ class BloomierFilterImmutable(BloomierBase):
         docstring for the resulting false-positive probability.
         """
         neighbors, mask = self._hash_all(key)
+        table1 = self._table1
         result = mask
         for neighbor in neighbors:
-            result ^= self._table1[neighbor]
+            result ^= table1[neighbor]
         if result.bit_length() > self._val_max_bit_length:
             return None
         return result

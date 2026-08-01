@@ -1,3 +1,5 @@
+import math
+
 import wyhash
 
 from .key_encoding import encode_key
@@ -16,19 +18,39 @@ class BloomierBase:
         self._seed = seed
         # Serialize keys to bytes for hashing; see key_encoding.encode_key.
         self._encode_key = key_encoder if key_encoder is not None else encode_key
-        # Pre-compute secrets so we never call make_secret in hot paths.
-        self._secrets = [wyhash.make_secret(seed + i) for i in range(num_hashes + 1)]
+        self._secret = wyhash.make_secret(seed)
 
     def _hash_all(self, key):
-        """Return (neighbors_list, mask_int) with a single key encoding."""
+        """Return (neighbors_list, mask_int) with a single key encoding.
+
+        Double hashing (Kirsch & Mitzenmacher): ``mask = h1`` and
+        ``neighbor_i = (h1 + (i+1)*h2) % size`` from two wyhash calls instead
+        of ``num_hashes + 1``.  ``h2`` is forced coprime with ``size`` (odd,
+        then bumped past shared factors), so a key's slots are pairwise
+        distinct whenever ``num_hashes <= size``; the fail-fast duplicate-slot
+        check in ``_find_match`` guards the ``num_hashes > size`` case.
+        """
         key_bytes = self._encode_key(key)
-        neighbors = [wyhash.hash(key_bytes, self._seed + i, self._secrets[i]) % self._size
-                     for i in range(self._num_hashes)]
-        mask = wyhash.hash(key_bytes, self._seed + self._num_hashes,
-                           self._secrets[self._num_hashes])
-        return neighbors, mask
+        h1 = wyhash.hash(key_bytes, self._seed, self._secret)
+        h2 = wyhash.hash(key_bytes, self._seed + 1, self._secret) | 1
+        size = self._size
+        # Slots collide iff d*h2 ≡ 0 (mod size) for some |d| < num_hashes;
+        # coprime h2 makes that impossible.  A random odd h2 is already
+        # coprime with all but the odd part of size, so this rarely iterates.
+        while math.gcd(h2, size) != 1:
+            h2 += 2
+        num_hashes = self._num_hashes
+        return [(h1 + (i + 1) * h2) % size for i in range(num_hashes)], h1
 
     def _find_match(self, keys: list) -> list:
+        """Order ``keys`` so each can be assigned a private tweak slot.
+
+        Returns a list of ``(key, tweak, neighbors, mask)`` tuples in the
+        order the builder must fill the table (deepest-peeled keys first).
+        Peeling is iterative and every key is hashed exactly once: the
+        precomputed ``(neighbors, mask)`` pairs are threaded through the
+        peeling levels instead of re-encoding/re-hashing surviving keys.
+        """
         if not keys:
             return []
 
@@ -46,33 +68,42 @@ class BloomierBase:
                     f"num_hashes."
                 )
 
-        # Identify non-singleton positions using bytearray for O(1) indexing.
-        # Much faster than set() for dense integer keys in [0, size).
-        non_singletons = bytearray(self._size)
-        seen = bytearray(self._size)
-        for neighbors, _ in precomputed:
-            for n in neighbors:
-                if seen[n]:
-                    non_singletons[n] = 1
-                seen[n] = 1
+        levels = []
+        level_keys = keys
+        level_pre = precomputed
+        while level_keys:
+            # Identify non-singleton positions using bytearray for O(1)
+            # indexing.  Much faster than set() for dense integer keys in
+            # [0, size).
+            non_singletons = bytearray(self._size)
+            seen = bytearray(self._size)
+            for neighbors, _ in level_pre:
+                for n in neighbors:
+                    if seen[n]:
+                        non_singletons[n] = 1
+                    seen[n] = 1
 
-        ordered = []
-        remaining = []
+            peeled = []
+            next_keys = []
+            next_pre = []
+            for key, (neighbors, mask) in zip(level_keys, level_pre):
+                for neighbor in neighbors:
+                    if not non_singletons[neighbor]:
+                        peeled.append((key, neighbor, neighbors, mask))
+                        break
+                else:
+                    next_keys.append(key)
+                    next_pre.append((neighbors, mask))
 
-        for key, (neighbors, mask) in zip(keys, precomputed):
-            for neighbor in neighbors:
-                if not non_singletons[neighbor]:
-                    ordered.append((key, neighbor, neighbors, mask))
-                    break
-            else:
-                remaining.append(key)
+            if not peeled:
+                raise RuntimeError(
+                    "No valid ordering found; try a different hash seed or "
+                    "increase the table size."
+                )
+            levels.append(peeled)
+            level_keys = next_keys
+            level_pre = next_pre
 
-        if not ordered:
-            raise RuntimeError(
-                "No valid ordering found; try a different hash seed or increase the table size."
-            )
-
-        if remaining:
-            ordered = self._find_match(remaining) + ordered
-
-        return ordered
+        # Deepest-peeled level first (reversed(levels)); iteration order
+        # within a level is preserved.
+        return [item for level in reversed(levels) for item in level]
