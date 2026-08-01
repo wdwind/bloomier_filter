@@ -7,6 +7,10 @@ _dumps = marshal.dumps
 
 class BloomierBase:
     def __init__(self, size: int, num_hashes: int, seed: int = 0):
+        if not isinstance(size, int) or size <= 0:
+            raise ValueError(f"size must be a positive integer, got {size!r}")
+        if not isinstance(num_hashes, int) or num_hashes <= 0:
+            raise ValueError(f"num_hashes must be a positive integer, got {num_hashes!r}")
         self._size = size
         self._num_hashes = num_hashes
         self._seed = seed
@@ -28,6 +32,19 @@ class BloomierBase:
 
         # Pre-compute hashes + masks for every key once (parallel list, no dict).
         precomputed = [self._hash_all(key) for key in keys]
+
+        # Fail fast if any key's own hash functions collide: the XOR
+        # encode/decode invariant is only defined when each key's hash slots
+        # are distinct, so a duplicate means the user must retry with a
+        # different seed / size / num_hashes rather than us working around it.
+        for key, (neighbors, _) in zip(keys, precomputed):
+            if len(set(neighbors)) != len(neighbors):
+                dup_slots = sorted({n for n in neighbors if neighbors.count(n) > 1})
+                raise RuntimeError(
+                    f"Hash functions collide for key {key!r}: duplicate table "
+                    f"slot(s) {dup_slots}. Try a different seed, size, or "
+                    f"num_hashes."
+                )
 
         # Identify non-singleton positions using bytearray for O(1) indexing.
         # Much faster than set() for dense integer keys in [0, size).

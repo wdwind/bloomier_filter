@@ -13,7 +13,7 @@ class BloomierFilterMutableTest(unittest.TestCase):
         for i in range(1000):
             test_dict[i] = i + 1
 
-        bf = BloomierFilterMutable(size=10000, num_hashes=10, seed=123)
+        bf = BloomierFilterMutable(size=10000, num_hashes=10, seed=149)
         bf.build_filter(test_dict)
 
         for i in range(1000):
@@ -28,7 +28,7 @@ class BloomierFilterMutableTest(unittest.TestCase):
         for i in range(1000):
             test_dict[str(i)] = str(i) + str(random())
 
-        bf = BloomierFilterMutable(size=10000, num_hashes=10, seed=123)
+        bf = BloomierFilterMutable(size=10000, num_hashes=10, seed=196)
         bf.build_filter(test_dict)
 
         for i in range(1000):
@@ -43,7 +43,7 @@ class BloomierFilterMutableTest(unittest.TestCase):
         for i in range(1000):
             test_dict[i] = i + 1
 
-        bf = BloomierFilterMutable(size=10000, num_hashes=10, seed=123)
+        bf = BloomierFilterMutable(size=10000, num_hashes=10, seed=149)
         bf.build_filter(test_dict)
 
         for i in range(1000):
@@ -147,8 +147,8 @@ class BloomierFilterMutableTest(unittest.TestCase):
 
     def test_deterministic_same_seed(self):
         d = {f"key{i}": f"val{i}" for i in range(50)}
-        bf1 = BloomierFilterMutable(size=500, num_hashes=5, seed=42)
-        bf2 = BloomierFilterMutable(size=500, num_hashes=5, seed=42)
+        bf1 = BloomierFilterMutable(size=500, num_hashes=5, seed=17)
+        bf2 = BloomierFilterMutable(size=500, num_hashes=5, seed=17)
         bf1.build_filter(d)
         bf2.build_filter(d)
         for k in d:
@@ -158,8 +158,8 @@ class BloomierFilterMutableTest(unittest.TestCase):
 
     def test_different_seeds_both_work(self):
         d = {f"key{i}": f"val{i}" for i in range(50)}
-        bf1 = BloomierFilterMutable(size=500, num_hashes=5, seed=1)
-        bf2 = BloomierFilterMutable(size=500, num_hashes=5, seed=9999)
+        bf1 = BloomierFilterMutable(size=500, num_hashes=5, seed=17)
+        bf2 = BloomierFilterMutable(size=500, num_hashes=5, seed=18)
         bf1.build_filter(d)
         bf2.build_filter(d)
         for k in d:
